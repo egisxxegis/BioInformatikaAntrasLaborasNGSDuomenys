@@ -1,4 +1,14 @@
 from Bio import SeqIO
+import copy
+
+
+ENCODINGS = [
+    ("Sanger Phred+33", "!", "I"),
+    ("Solexa Solexa+64", ";", "h"),
+    ("Illumina 1.3+ Phred+64", "@", "h"),
+    ("Illumina 1.5+ Phred+64", "B", "i"),
+    ("Illumina 1.8+ Phred+33", "!", "J")
+]
 
 
 class HandRecord:
@@ -26,8 +36,6 @@ def hand_read_fastq(file_name):
             if state == state_id:
                 if line[0] == '@':
                     temp_record.id, temp_record.description = line[1:].split(" ", 1)
-                    print(f"found id: {temp_record.id}")
-                    print(f"the desc: {temp_record.description}")
                     state = state_seq
                     continue
             elif state == state_seq:
@@ -46,10 +54,23 @@ def hand_read_fastq(file_name):
     return the_return
 
 
+def identify_encoding(rating: str, options: [(str, str, str)]):
+    # example options = [("Sanger Phred+33", "!", "I")]
+    low = min(rating)
+    high = max(rating)
+    to_return = []
+    for option in options:
+        if low < option[1]:
+            continue
+        if high > option[2]:
+            continue
+        to_return.append(option)
+    return to_return
+
 def main():
     file_name = "data\\reads_for_analysis.fastq"
     seqs = hand_read_fastq(file_name)
-    print(f"found {len(seqs)} seqs")
+
     for seq_record in SeqIO.parse(file_name, "fastq"):
         # print(seq_record.letter_annotations["phred_quality"])
         print(seq_record.id)
