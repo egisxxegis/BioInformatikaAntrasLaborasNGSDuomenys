@@ -8,6 +8,7 @@ def print_if_false(title, boolean):
     test_counter += 1
     if not boolean:
         print("----- TEST. " + title + " failed.")
+        test_counter -= 1
         return
 
 

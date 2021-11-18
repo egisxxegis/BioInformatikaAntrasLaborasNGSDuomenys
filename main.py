@@ -1,5 +1,4 @@
 from Bio import SeqIO
-import copy
 
 
 ENCODINGS = [
@@ -33,6 +32,7 @@ def hand_read_fastq(file_name):
         for line in file:
             # print(f"line: ''{line}'' len:{len(line)} true? {True if line else False}")
             line = line.replace("\r", "").replace("\n", "")
+
             if state == state_id:
                 if line[0] == '@':
                     temp_record.id, temp_record.description = line[1:].split(" ", 1)
@@ -67,18 +67,29 @@ def identify_encoding(rating: str, options: [(str, str, str)]):
         to_return.append(option)
     return to_return
 
+
 def main():
+    global ENCODINGS
     file_name = "data\\reads_for_analysis.fastq"
     seqs = hand_read_fastq(file_name)
 
-    for seq_record in SeqIO.parse(file_name, "fastq"):
-        # print(seq_record.letter_annotations["phred_quality"])
-        print(seq_record.id)
-        return
+    # find final encoding
+    counter = [0] * len(ENCODINGS)
+    for seq in seqs:
+        encoding = identify_encoding(seq.rating, ENCODINGS)
+        for enco in encoding:
+            counter[ENCODINGS.index(enco)] += 1
+    encoding_index = counter.index(max(counter))  # if there are multi answers, we pick the top one (leftist)
+    encoding = ENCODINGS[encoding_index]
+    print("Quality rating encoding: " + encoding[0])
+
+    # for seq_record in SeqIO.parse(file_name, "fastq"):
+    #     # print(seq_record.letter_annotations["phred_quality"])
+    #     print(seq_record.id)
+    #     return
 
 
 if __name__ == '__main__':
     main()
 else:
     print("not main. I am quitting")
-
