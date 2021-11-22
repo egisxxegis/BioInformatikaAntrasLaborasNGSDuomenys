@@ -1,4 +1,5 @@
 from Bio import SeqIO
+from Bio.Blast import NCBIWWW
 import matplotlib.pyplot as plot
 import pylab
 
@@ -111,7 +112,7 @@ def find_pikas(data: [float], min_len_in_pikas=5, max_amount_of_pikas=5):
         if pikas[0] - pikas[-1] > max_diff_in_pikas and len(pikas) - 1 >= min_len_in_pikas:
             pikas = pikas[0:-1]
             append = True
-        elif len(pikas) >= target_len:
+        elif len(pikas) >= target_len and data[i_rev] != pikas[-1]:
             append = True
             i_rev -= 1
 
@@ -142,6 +143,19 @@ def plot_peaks(peaks, the_ys):
     return
 
 
+def peaks_to_seqs(peaks: [float], the_xs: [float], seqs: [HandRecord]):
+    to_return = []
+    the_xs = [x for x in the_xs]  # copy
+    for peak in peaks:
+        the_seq = []
+        for dist in peak:
+            the_i = the_xs.index(dist)
+            the_xs[the_i] = -19999.99991
+            the_seq.append(seqs[the_i])
+        to_return.append(the_seq)
+    return to_return
+
+
 def main():
     global ENCODINGS
     file_name = "data\\reads_for_analysis.fastq"
@@ -170,6 +184,13 @@ def main():
     plot.scatter(the_xs, the_ys, 2, "r")
     plot_peaks(pikas, the_ys)
     plot.show()
+
+    # perform blast'a search for each 5 seq of peaks
+    c = 0
+    for peak in pikas:
+        for i in range(0, 5):
+            print("performing BLAST search " + f"({c}/{len(pikas*5)})")
+            result_handle = NCBIWWW.qblast("blastn", "nr/nt", )
 
     # for seq_record in SeqIO.parse(file_name, "fastq"):
     #     # print(seq_record.letter_annotations["phred_quality"])

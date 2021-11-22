@@ -64,4 +64,12 @@ if __name__ == "__main__":
     answer = 0
     print_if_not_equal("0 dist", out, answer)
 
+    data = [90, 80, 80], [60]
+    param = [[60, 70, 80, 80, 90],
+             [HandRecord(), HandRecord(), HandRecord(), HandRecord(), HandRecord()]
+             ]
+    out = peaks_to_seqs(data, *param)
+    answer = [[param[1][4], param[1][2], param[1][3]], [param[1][0]]]
+    print_if_not_equal("peaks to seqs", out, answer)
+
     print(f"Number of successful tests: {test_counter}")
