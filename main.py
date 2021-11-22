@@ -78,7 +78,7 @@ def calc_distribution(source: str, what: [str]):
     return the_sum / total
 
 
-def prepare_plot(feed_count):
+def prepare_plot(feed_count, title):
     coord_min_max_x = [0, 100]
     coord_min_max_y = [1, feed_count]
 
@@ -86,12 +86,60 @@ def prepare_plot(feed_count):
     pylab.xlim(coord_min_max_x)
     pylab.ylim(coord_min_max_y)
 
-    plot.title('C/G nukleotidų pasiskirstymas read\'uose')
-    plot.xlabel('C/G nukleotidų dalis read\'e')
+    plot.title(title)
+    plot.xlabel('C/G nukleotidų dalis read\'e procentais (%)')
     plot.ylabel('Read\'ų skaičius')
 
     # show values on contour
     plot.rcParams.update({'font.size': 12})
+
+
+def find_pikas(data: [float], min_len_in_pikas=5, max_amount_of_pikas=5):
+    data = [x for x in data]  # copy
+    data.sort()
+    to_return = []
+    pikas = []
+    target_len = 9999999
+    max_diff_in_pikas = max(data) / 2 / max_amount_of_pikas
+
+    append = False
+    for i_rev in range(0, len(data))[-1::-1]:
+        pikas.append(data[i_rev])
+        if len(pikas) < min_len_in_pikas:
+            continue
+
+        if pikas[0] - pikas[-1] > max_diff_in_pikas and len(pikas) - 1 >= min_len_in_pikas:
+            pikas = pikas[0:-1]
+            append = True
+        elif len(pikas) >= target_len:
+            append = True
+            i_rev -= 1
+
+        if append:
+            to_return.append(pikas)
+            target_len = len(to_return[-1]) * 5
+            append = False
+            if i_rev > -1 and len(to_return) < max_amount_of_pikas:
+                pikas = [data[i_rev]]
+            else:
+                return to_return
+
+    to_return.append(pikas)
+    return to_return
+
+
+def plot_peaks(peaks, the_ys):
+    color = "-m"
+    index = 1
+    dec = (max(the_ys) - min(the_ys)) / 10
+    index_rev = 10 - index
+    for peak in peaks:
+        plot.plot([peak[0], peak[0]], [the_ys[0], the_ys[-1]], color)
+        plot.annotate(f"{index}", [peak[0], dec * index_rev])
+        plot.annotate(f"peak", [peak[0], dec * index_rev - dec / 2])
+        index += 1
+        index_rev -= 1
+    return
 
 
 def main():
@@ -112,11 +160,16 @@ def main():
     # calculate cg - s and vizualize
     the_xs = [100 * calc_distribution(sq.seq, ["C", "G", "S"]) for sq in seqs]
     the_ys = [read for read in range(1, len(seqs) + 1)]
-    prepare_plot(len(the_xs))
-    plot.plot(the_xs, the_ys)
+    prepare_plot(len(the_xs), "C/G nukleotidų pasiskirstymas read'uose")
+    plot.scatter(the_xs, the_ys, 2, "r")
     plot.show()
 
-    # find pika
+    # find pika'chu
+    pikas = find_pikas(the_xs, 5, 4)
+    prepare_plot(len(the_xs), "C/G nukleotidų pasiskirstymas read'uose ir rasti pikai")
+    plot.scatter(the_xs, the_ys, 2, "r")
+    plot_peaks(pikas, the_ys)
+    plot.show()
 
     # for seq_record in SeqIO.parse(file_name, "fastq"):
     #     # print(seq_record.letter_annotations["phred_quality"])
