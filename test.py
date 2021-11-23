@@ -1,4 +1,6 @@
 from main import *
+from HandRecord import HandRecord
+from sequenceTools import identify_encoding, calc_distribution, peaks_to_seqs
 
 test_counter = 0
 
