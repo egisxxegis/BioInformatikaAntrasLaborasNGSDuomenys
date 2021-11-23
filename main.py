@@ -1,7 +1,10 @@
 from Bio import SeqIO
 from Bio.Blast import NCBIWWW
+from Bio.Blast import NCBIXML
+import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plot
 import pylab
+from tabulate import tabulate
 
 
 ENCODINGS = [
@@ -104,6 +107,7 @@ def find_pikas(data: [float], min_len_in_pikas=5, max_amount_of_pikas=5):
     max_diff_in_pikas = max(data) / 2 / max_amount_of_pikas
 
     append = False
+    carry = False
     for i_rev in range(0, len(data))[-1::-1]:
         pikas.append(data[i_rev])
         if len(pikas) < min_len_in_pikas:
@@ -112,7 +116,8 @@ def find_pikas(data: [float], min_len_in_pikas=5, max_amount_of_pikas=5):
         if pikas[0] - pikas[-1] > max_diff_in_pikas and len(pikas) - 1 >= min_len_in_pikas:
             pikas = pikas[0:-1]
             append = True
-        elif len(pikas) >= target_len and data[i_rev] != pikas[-1]:
+            carry = True
+        elif len(pikas) >= target_len and data[i_rev] != pikas[-2]:
             append = True
             i_rev -= 1
 
@@ -121,7 +126,8 @@ def find_pikas(data: [float], min_len_in_pikas=5, max_amount_of_pikas=5):
             target_len = len(to_return[-1]) * 5
             append = False
             if i_rev > -1 and len(to_return) < max_amount_of_pikas:
-                pikas = [data[i_rev]]
+                pikas = [data[i_rev]] if carry else []
+                carry = False
             else:
                 return to_return
 
@@ -150,10 +156,50 @@ def peaks_to_seqs(peaks: [float], the_xs: [float], seqs: [HandRecord]):
         the_seq = []
         for dist in peak:
             the_i = the_xs.index(dist)
-            the_xs[the_i] = -19999.99991
+            the_xs[the_i] = -1999.99991
             the_seq.append(seqs[the_i])
         to_return.append(the_seq)
     return to_return
+
+
+def print_data_in_table(data, top_down_headers=None, left_right_headers=None, dimensions=1):
+    if left_right_headers is None:
+        left_right_headers = ["data"]
+    if dimensions < 1 or dimensions > 2:
+        print(f'{dimensions} dimensions are not supported in print_data_in_table.')
+        return
+    if dimensions == 1:
+        if top_down_headers is None:
+            print(tabulate(data, left_right_headers))
+        else:
+            new_data = []
+            for index in range(len(data)):
+                new_data.append([top_down_headers[index], data[index]])
+            print(tabulate(new_data, ["name"] + left_right_headers))
+        return
+    elif dimensions == 2:
+        # we substract one because top_down_headers will be added
+        if len(data) % (len(left_right_headers) - 1) > 0:
+            print(f'Given data cannot be converted to {len(left_right_headers)} column table.')
+            return
+        elif len(left_right_headers) == 1:
+            print(f'1 column header can not form 2 dimensional table.')
+            return
+        if top_down_headers is None:
+            print(f'top down headers are must for 2 dimensional table. Else use 1 dimensional')
+            return
+        new_data = []
+        the_index = 0
+        the_index_of_header = 0
+        the_length = len(left_right_headers) - 1
+        while the_index + the_length < len(data)+1:
+            new_data.append(
+                [top_down_headers[the_index_of_header]]
+                + data[the_index: the_index + the_length])
+            the_index += the_length
+            the_index_of_header += 1
+        print(tabulate(new_data, left_right_headers, tablefmt="psql"))
+        return
 
 
 def main():
@@ -186,11 +232,43 @@ def main():
     plot.show()
 
     # perform blast'a search for each 5 seq of peaks
+    print("Preparing data for BLAST search")
+    the_seqs = peaks_to_seqs(pikas, the_xs, seqs)
+    matches = []
     c = 0
-    for peak in pikas:
-        for i in range(0, 5):
+    for peak in the_seqs:
+        for i in range(0, min(5, len(peak))):
+            c += 1
             print("performing BLAST search " + f"({c}/{len(pikas*5)})")
-            result_handle = NCBIWWW.qblast("blastn", "nr/nt", )
+            print(f"seq: {peak[i].seq}")
+            result_handle = NCBIWWW.qblast(program="blastn",
+                                           database="nt",
+                                           sequence=f";the test sample\r\n{peak[i].seq}",
+                                           gapcosts="5 2",
+                                           hitlist_size=1,
+                                           nucl_penalty=-3,
+                                           nucl_reward=2,
+                                           entrez_query='"bacteria"[organism]')
+            result_xml = result_handle.read()
+            print(result_xml)
+            result_title = ""
+            try:
+                result_title = ET.fromstring(result_xml)\
+                    .find("BlastOutput_iterations")\
+                    .find("Iteration")\
+                    .find("Iteration_hits")\
+                    .find("Hit")\
+                    .find("Hit_def")\
+                    .text
+            except AttributeError:
+                result_title = "???"
+            print(f"best match: {result_title}")
+            matches.append((peak[i].id, result_title))
+            print_data_in_table(matches, left_right_headers=["Read'o id", "Rastas organizmas"])
+    print("BLAST search done")
+
+    # print search results
+    print_data_in_table(matches, left_right_headers=["Read'o id", "Rastas organizmas"])
 
     # for seq_record in SeqIO.parse(file_name, "fastq"):
     #     # print(seq_record.letter_annotations["phred_quality"])
